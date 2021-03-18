@@ -1,4 +1,5 @@
 {
     "position" : "backend",
-    "techs": ["python","java","go","golang","php","javascript","c","c++","html","css","nodejs","node","net","django","flask"]
+    "techs": ["python","java","go","golang","php","ruby","sql","javascript","c","c++","c#","rust","bash","html","css","nodejs","node","net","django","flask","assembler"],
+    "join": ["go:golang","nodejs:node"]
 }
