@@ -1,6 +1,7 @@
 import re
 import json
 import requests
+import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.chart import PieChart, ProjectedPieChart, Reference
@@ -108,19 +109,35 @@ def join_techs(techs_dict):
         print('ERROR: search.json not found.')
 
 
+# Sort the techs dictionary descendingly
+def sort_techs(techs_dict):
+    sorted_techs_dict = {}
+    sorted_keys = sorted(techs_dict, key=techs_dict.get, reverse=True)
+
+    for key in sorted_keys:
+        #sorted_techs_dict.update({key:techs_dict.get(key)})
+        sorted_techs_dict[key] = techs_dict[key]
+    
+    return sorted_techs_dict
+    
+
 # Generates a .xlsx file with the results of the scraping
 def results_to_excel(position,techs,posts_seen,total_found):
     wb = Workbook()
     sheet = wb.active
+    date = datetime.datetime.now()
 
     # initial format of the sheet
     sheet.cell(1,1).value = 'Total posts viewed:'
     sheet.cell(1,2).value = posts_seen
+    sheet.cell(1,4).value = 'Date:'
+    sheet.cell(1,5).value = date
     sheet.cell(3,1).value = 'Tech/Lang'
     sheet.cell(3,2).value = 'Number of appearances'
     sheet.cell(3,3).value = 'Ocurrence percentage (*)'
-    sheet['F19'] = "(*) The occurrence percentage in the column 'C' is respect to the total number of posts viewed"
+    sheet['F19'] = "(*) respect to the total number of posts viewed"
     sheet.cell(1,1).font = Font(name='Arial', bold=True, size=13)
+    sheet.cell(1,4).font = Font(name='Arial', bold=True, size=13)
     sheet.cell(3,1).font = Font(name='Arial', bold=True, size=13)
     sheet.cell(3,2).font = Font(name='Arial', bold=True, size=13)
     sheet.cell(3,3).font = Font(name='Arial', bold=True, size=13)
@@ -143,9 +160,9 @@ def results_to_excel(position,techs,posts_seen,total_found):
     pie.set_categories(labels)
     pie.title = f'Number of times a technology/language was found from {total_found} techs found'
 
-    sheet.add_chart(pie, 'F2')
+    sheet.add_chart(pie, 'F3')
 
-    wb.save(f'{position}.xlsx')
+    wb.save(f'{position} {date}.xlsx')
 
 
 def main():
@@ -154,7 +171,7 @@ def main():
     position,techs,total_techs = get_search_data()
     url = get_url(position)
 
-    response = requests.get(url)
+    '''response = requests.get(url)
     soup = BeautifulSoup(response.text, 'html.parser')
     posts = soup.find_all('div', 'jobsearch-SerpJobCard')
     
@@ -165,9 +182,9 @@ def main():
         if job_desc != None:
             total_found += count_techs(job_desc,techs)
         print(f"{i}: {techs}") #debugger
-        i += 1 #debugger
+        i += 1 #debugger'''
     
-    '''while True:
+    while True:
         response = requests.get(url)
         soup = BeautifulSoup(response.text, 'html.parser')
         posts = soup.find_all('div', 'jobsearch-SerpJobCard')
@@ -186,12 +203,13 @@ def main():
             print(url) #debugger
         except AttributeError:
             print("Next page not found.") #debugger
-            break'''
+            break
     
     join_techs(techs)
     print(techs) #debugger
-
-    results_to_excel(position,techs,posts_seen,total_found)
+    sorted_techs = sort_techs(techs)
+    print(sorted_techs) #debbuger
+    results_to_excel(position,sorted_techs,posts_seen,total_found)
 
     print('\nScraping finished, an Excel sheet with the results has been created.\n')
 
