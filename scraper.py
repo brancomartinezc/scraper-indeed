@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.chart import PieChart, ProjectedPieChart, Reference
 from openpyxl.styles import Alignment, Font
+from urllib3.exceptions import NewConnectionError, MaxRetryError
 
 
 # From the json file gets the position and creates a dictionary with techs to search
@@ -30,7 +31,6 @@ def get_search_data():
 
     return position,techs,total_techs
 
-
 # Generates the url from position
 def get_url(position):
     template = 'https://www.indeed.com/jobs?q={}&start=00'
@@ -38,27 +38,31 @@ def get_url(position):
 
     return url
 
-
 # Generates a string with the desciption of the job post
 def get_job_description(post):
-    job_url = 'https://www.indeed.com' + post.h2.a.get('href')
-    response = requests.get(job_url)
-    soup = BeautifulSoup(response.text, 'html.parser')
 
     try:
-        job_desc = soup.find('div', 'jobsearch-jobDescriptionText').text
-    except AttributeError:
-        print("job_desc NONE") #debugger
+        job_url = 'https://www.indeed.com' + post.h2.a.get('href')
+        response = requests.get(job_url)
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        try:
+            job_desc = soup.find('div', 'jobsearch-jobDescriptionText').text
+        except AttributeError:
+            print("job_desc NONE") #debugger
+            job_desc = None
+
+    except (ConnectionError, TimeoutError, NewConnectionError, MaxRetryError):
+        print("\n\nERROR: Connection failed trying to get the description of a job.\n\n") #debugger
         job_desc = None
     
     return job_desc
-
 
 # Counts the techs that are in the job description and updates the techs dictionary
 def count_techs(description,techs):
     total_found = 0
     techs_to_increment = []
-    job_desc = re.split(r'[-,.\s]\s*',description)
+    job_desc = re.split(r'[-,/().\s]\s*',description)
 
     #for each word in the description, if it is equals to a tech, that tech has to be incremented
     for word in job_desc:
@@ -73,7 +77,6 @@ def count_techs(description,techs):
         total_found += 1
     
     return total_found
-
 
 # Modifies the dictionary joining the words that refers to the same techonoly/language
 def join_techs(techs_dict):
@@ -108,7 +111,6 @@ def join_techs(techs_dict):
     except FileNotFoundError:
         print('ERROR: search.json not found.')
 
-
 # Sort the techs dictionary descendingly
 def sort_techs(techs_dict):
     sorted_techs_dict = {}
@@ -120,7 +122,6 @@ def sort_techs(techs_dict):
     
     return sorted_techs_dict
     
-
 # Generates a .xlsx file with the results of the scraping
 def results_to_excel(position,techs,posts_seen,total_found):
     wb = Workbook()
@@ -164,7 +165,6 @@ def results_to_excel(position,techs,posts_seen,total_found):
 
     wb.save(f'{position} {date}.xlsx')
 
-
 def main():
     posts_seen = 0
     total_found = 0 #total number of times that all technolgies/languages where found
@@ -185,30 +185,36 @@ def main():
         i += 1 #debugger'''
     
     while True:
-        response = requests.get(url)
-        soup = BeautifulSoup(response.text, 'html.parser')
-        posts = soup.find_all('div', 'jobsearch-SerpJobCard')
-        i=1 #debugger
-        for post in posts:
-            posts_seen += 1
-            job_desc = get_job_description(post)
-            if job_desc != None:
-                total_found += count_techs(job_desc,techs)
-            print(f"{i}: {techs}") #debugger
-            i += 1 #debugger
-        
-        #Next page
+
         try:
-            url = 'https://www.indeed.com' + soup.find('a', {'aria-label': 'Next'}).get('href')
-            print(url) #debugger
-        except AttributeError:
-            print("Next page not found.") #debugger
-            break
+            response = requests.get(url)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            posts = soup.find_all('div', 'jobsearch-SerpJobCard')
+            i=1 #debugger
+            for post in posts:
+                posts_seen += 1
+                job_desc = get_job_description(post)
+                if job_desc != None:
+                    total_found += count_techs(job_desc,techs)
+                print(f"{i}: {techs}") #debugger
+                i += 1 #debugger
+            
+            #Next page
+            try:
+                url = 'https://www.indeed.com' + soup.find('a', {'aria-label': 'Next'}).get('href')
+                print(url) #debugger
+            except AttributeError:
+                print("\nNext page not found.") #debugger
+                break
+        
+        except (ConnectionError, TimeoutError, NewConnectionError, MaxRetryError):
+            print("\n\nERROR: Connection failed trying to get the actual page.\n\n") #debugger
+            job_desc = None
     
     join_techs(techs)
-    print(techs) #debugger
+    #print(techs) #debugger
     sorted_techs = sort_techs(techs)
-    print(sorted_techs) #debbuger
+    #print(sorted_techs) #debbuger
     results_to_excel(position,sorted_techs,posts_seen,total_found)
 
     print('\nScraping finished, an Excel sheet with the results has been created.\n')
