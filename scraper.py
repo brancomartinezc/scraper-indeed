@@ -1,6 +1,7 @@
 import re
 import json
 import requests
+import datetime
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 from openpyxl.chart import PieChart, ProjectedPieChart, Reference
@@ -12,15 +13,20 @@ def get_search_data():
     total_techs = 0
     techs = {}
 
-    with open('search.json') as file:
-        data = json.load(file)
+    try:
+        with open('search.json') as file:
+            data = json.load(file)
 
-    position = data.get('position')
-    techs_list = data.get('techs')
-    for tech in techs_list:
-        techs.update({tech:0})
-        total_techs += 1
+        position = data.get('position')
+        techs_list = data.get('techs')
+        for tech in techs_list:
+            techs.update({tech:0})
+            total_techs += 1
 
+        file.close()
+
+    except FileNotFoundError:
+        print('ERROR: search.json not found.')
 
     return position,techs,total_techs
 
@@ -48,7 +54,7 @@ def get_job_description(post):
     return job_desc
 
 
-# Counts the techs that are in the job description
+# Counts the techs that are in the job description and updates the techs dictionary
 def count_techs(description,techs):
     total_found = 0
     techs_to_increment = []
@@ -69,19 +75,69 @@ def count_techs(description,techs):
     return total_found
 
 
+# Modifies the dictionary joining the words that refers to the same techonoly/language
+def join_techs(techs_dict):
+
+    try:
+        with open('search.json') as file:
+            data = json.load(file)
+
+        try:
+            to_join_list = data.get('join')
+            for raw_techs_to_join in to_join_list:
+                techs_to_join = raw_techs_to_join.split(":")
+
+                #gets the keys and values
+                tech_to_be_updated = techs_to_join[0]
+                value_to_be_updated = techs_dict.get(tech_to_be_updated)
+
+                tech_to_del = techs_to_join[1]
+                value_to_save = techs_dict.get(tech_to_del)
+
+                new_value = value_to_be_updated + value_to_save
+                
+                #modifies the dictionary
+                techs_dict.update({tech_to_be_updated:new_value})
+                techs_dict.pop(tech_to_del)
+                
+        except (TypeError,IndexError):
+                print("ERROR: 'join' config.")
+
+        file.close()
+    
+    except FileNotFoundError:
+        print('ERROR: search.json not found.')
+
+
+# Sort the techs dictionary descendingly
+def sort_techs(techs_dict):
+    sorted_techs_dict = {}
+    sorted_keys = sorted(techs_dict, key=techs_dict.get, reverse=True)
+
+    for key in sorted_keys:
+        #sorted_techs_dict.update({key:techs_dict.get(key)})
+        sorted_techs_dict[key] = techs_dict[key]
+    
+    return sorted_techs_dict
+    
+
 # Generates a .xlsx file with the results of the scraping
 def results_to_excel(position,techs,posts_seen,total_found):
     wb = Workbook()
     sheet = wb.active
+    date = datetime.datetime.now()
 
     # initial format of the sheet
-    sheet.cell(1,1).value = 'Total posts seen'
+    sheet.cell(1,1).value = 'Total posts viewed:'
     sheet.cell(1,2).value = posts_seen
-    sheet.cell(3,1).value = 'Tech'
+    sheet.cell(1,4).value = 'Date:'
+    sheet.cell(1,5).value = date
+    sheet.cell(3,1).value = 'Tech/Lang'
     sheet.cell(3,2).value = 'Number of appearances'
     sheet.cell(3,3).value = 'Ocurrence percentage (*)'
-    sheet['F19'] = '(*) The occurrence percentage in the column "C" is respect to the total number of posts viewed'
+    sheet['F19'] = "(*) respect to the total number of posts viewed"
     sheet.cell(1,1).font = Font(name='Arial', bold=True, size=13)
+    sheet.cell(1,4).font = Font(name='Arial', bold=True, size=13)
     sheet.cell(3,1).font = Font(name='Arial', bold=True, size=13)
     sheet.cell(3,2).font = Font(name='Arial', bold=True, size=13)
     sheet.cell(3,3).font = Font(name='Arial', bold=True, size=13)
@@ -104,9 +160,9 @@ def results_to_excel(position,techs,posts_seen,total_found):
     pie.set_categories(labels)
     pie.title = f'Number of times a technology/language was found from {total_found} techs found'
 
-    sheet.add_chart(pie, 'F2')
+    sheet.add_chart(pie, 'F3')
 
-    wb.save(f'{position}.xlsx')
+    wb.save(f'{position} {date}.xlsx')
 
 
 def main():
@@ -146,12 +202,16 @@ def main():
             url = 'https://www.indeed.com' + soup.find('a', {'aria-label': 'Next'}).get('href')
             print(url) #debugger
         except AttributeError:
-            print("URL NOT FOUND") #debugger
+            print("Next page not found.") #debugger
             break
     
-    results_to_excel(position,techs,posts_seen,total_found)
+    join_techs(techs)
+    print(techs) #debugger
+    sorted_techs = sort_techs(techs)
+    print(sorted_techs) #debbuger
+    results_to_excel(position,sorted_techs,posts_seen,total_found)
 
-    print('Scraping finished, an excel sheet with the results was created')
+    print('\nScraping finished, an Excel sheet with the results has been created.\n')
 
 
 if __name__ == '__main__':
