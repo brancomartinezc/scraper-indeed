@@ -1,5 +1,5 @@
 {
     "position" : "backend",
-    "techs": ["python","java","go","golang","php","ruby","sql","javascript","c","c++","c#","rust","bash","html","css","nodejs","node","net","django","flask","assembler"],
-    "join": ["go:golang","nodejs:node"]
+    "techs": ["python","java","go","golang","c++","c#","php","rust","ruby","sql","nosql","html","css","javascript","api","apis","rest","graphql","aws","amazon","azure","gcp","google","docker","kubernetes","shell","bash","django","flask","postgres","linux","nodejs","node","net"],
+    "join": ["go:golang","api:apis","aws:amazon","gcp:google","shell:bash","nodejs:node"]
 }
