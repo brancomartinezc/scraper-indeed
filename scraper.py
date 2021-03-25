@@ -52,7 +52,7 @@ def get_job_description(post):
             print("job_desc NONE") #debugger
             job_desc = None
 
-    except (ConnectionError, TimeoutError, NewConnectionError, MaxRetryError):
+    except (requests.exceptions.ConnectionError):
         print("\n\nERROR: Connection failed trying to get the description of a job.\n\n") #debugger
         job_desc = None
     
@@ -117,7 +117,6 @@ def sort_techs(techs_dict):
     sorted_keys = sorted(techs_dict, key=techs_dict.get, reverse=True)
 
     for key in sorted_keys:
-        #sorted_techs_dict.update({key:techs_dict.get(key)})
         sorted_techs_dict[key] = techs_dict[key]
     
     return sorted_techs_dict
@@ -192,9 +191,9 @@ def main():
             posts = soup.find_all('div', 'jobsearch-SerpJobCard')
             i=1 #debugger
             for post in posts:
-                posts_seen += 1
                 job_desc = get_job_description(post)
                 if job_desc != None:
+                    posts_seen += 1 # only increments the posts seen if the description is valid 
                     total_found += count_techs(job_desc,techs)
                 print(f"{i}: {techs}") #debugger
                 i += 1 #debugger
@@ -207,7 +206,7 @@ def main():
                 print("\nNext page not found.") #debugger
                 break
         
-        except (ConnectionError, TimeoutError, NewConnectionError, MaxRetryError):
+        except (requests.exceptions.ConnectionError):
             print("\n\nERROR: Connection failed trying to get the actual page.\n\n") #debugger
             job_desc = None
     
